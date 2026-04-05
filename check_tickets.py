@@ -1,63 +1,56 @@
 import os
 import requests
-import json
+import re
 
-# 1. Zugangsdaten aus dem GitHub-Tresor holen
+# 1. Zugangsdaten
 token = os.getenv('TELEGRAM_TOKEN')
 chat_id = os.getenv('TELEGRAM_CHAT_ID')
-scraper_key = os.getenv('SCRAPER_API_KEY')
 
 def send_msg(text):
     url = f"https://api.telegram.org/bot{token}/sendMessage"
     requests.get(url, params={"chat_id": chat_id, "text": text})
 
-# 2. Die Datei laden, in der wir uns die alten Filme gemerkt haben
+# 2. Gedächtnis laden
 DATEI = "aktuelle_shows.txt"
 alte_shows = set()
 if os.path.exists(DATEI):
     with open(DATEI, "r", encoding="utf-8") as f:
         alte_shows = set(f.read().splitlines())
 
-# 3. Den Tunnel (ScraperAPI) nutzen, um die echten JSON-Daten zu holen
-# Wir holen den kompletten Spielplan für das ganze Kino!
-TARGET_URL = "https://www.kinoheld.de/api/v1/cinemas/2631/shows?format=json"
-payload = {'api_key': scraper_key, 'url': TARGET_URL}
+# 3. Traumpalast direkt anklopfen (ohne ScraperAPI)
+URL = "https://leonberg.traumpalast.de/index.php/PID/11321.html"
+headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0'}
 
 try:
-    print("Hole aktuellen Spielplan...")
-    response = requests.get('http://api.scraperapi.com/', params=payload, timeout=60)
-    
+    response = requests.get(URL, headers=headers, timeout=15)
     if response.status_code == 200:
-        data = response.json()
-        shows = data.get('shows', [])
+        html = response.text
         
-        # Wir erstellen eine Liste aus Titeln, Datum und Uhrzeit
-        aktuelle_liste = []
-        for s in shows:
-            titel = s.get('name', 'Unbekannt')
-            datum = s.get('beginning', {}).get('formatted', 'Kein Datum')
-            eintrag = f"{titel} am {datum}"
-            aktuelle_liste.append(eintrag)
+        # Wir suchen nach Uhrzeiten (z.B. "20:00 Uhr")
+        # Das verhindert Fehlalarme durch leere Kalender-Daten
+        funde = re.findall(r'(\d{2}:\d{2})\s*Uhr', html)
         
-        neue_eintraege = [s for s in aktuelle_liste if s not in alte_shows]
+        # Wir merken uns einfach, wie viele Uhrzeiten auf der Seite stehen
+        aktuelle_anzahl = len(funde)
+        
+        # 4. Vergleich
+        # Wir speichern die Anzahl als "Zustand"
+        anzahl_alt = "0"
+        if os.path.exists("anzahl.txt"):
+            with open("anzahl.txt", "r") as f: anzahl_alt = f.read().strip()
 
-        # 4. Der Vergleich
-        if neue_eintraege:
-            nachricht = "🚨 NEUE TERMINE GEFUNDEN!\n\n" + "\n".join([f"✅ {n}" for n in neue_eintraege])
-            nachricht += "\n\nHier buchen: https://leonberg.traumpalast.de/"
-            send_msg(nachricht)
+        if aktuelle_anzahl > 0 and str(aktuelle_anzahl) != anzahl_alt:
+            msg = f"🚨 TICKETS AKTIV! Es wurden {aktuelle_anzahl} Vorstellungen im IMAX gefunden!\n\nLink: {URL}"
+            send_msg(msg)
             
-            # Jetzt die neue Liste für das nächste Mal speichern
-            with open(DATEI, "w", encoding="utf-8") as f:
-                f.write("\n".join(aktuelle_liste))
-            print(f"{len(neue_eintraege)} neue Shows gefunden.")
+            with open("anzahl.txt", "w") as f: f.write(str(aktuelle_anzahl))
         else:
             if os.getenv('GITHUB_EVENT_NAME') == "workflow_dispatch":
-                send_msg("ℹ️ Check lief: Keine neuen Termine im Vergleich zum letzten Mal gefunden.")
-            print("Keine Änderungen.")
-            
+                send_msg(f"✅ Check lief: Seite geladen, aber noch keine aktiven Uhrzeiten gefunden ({aktuelle_anzahl} Shows).")
     else:
-        print(f"Fehler: Status {response.status_code}")
+        if os.getenv('GITHUB_EVENT_NAME') == "workflow_dispatch":
+            send_msg(f"❌ Traumpalast blockt GitHub jetzt doch (Status {response.status_code})")
 
 except Exception as e:
-    print(f"Fehler: {str(e)}")
+    if os.getenv('GITHUB_EVENT_NAME') == "workflow_dispatch":
+        send_msg(f"❌ Fehler: {str(e)}")
