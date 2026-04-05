@@ -3,7 +3,7 @@ name: IMAX Check 30min
 on:
   workflow_dispatch:
   schedule:
-    - cron: '0,30 * * * *' # Läuft jetzt alle 30 Minuten
+    - cron: '0,30 * * * *'
 
 jobs:
   check:
@@ -12,10 +12,14 @@ jobs:
       contents: write
       
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - name: Code auschecken
+        uses: actions/checkout@v4
+
+      - name: Python einrichten
+        uses: actions/setup-python@v5
         with:
           python-version: '3.10'
+
       - name: Software installieren
         run: pip install requests beautifulsoup4 lxml
 
@@ -30,4 +34,12 @@ jobs:
           git config --global user.name "Kino-Bot"
           git config --global user.email "bot@example.com"
           git add aktuelle_shows.txt || true
-          git diff --quiet && git diff --staged --quiet || (git commit -m "Zustand aktualisiert" && git push)
+          
+          # Wir prüfen jetzt ganz sauber, ob es Änderungen gibt
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "Änderungen gefunden, speichere..."
+            git commit -m "Zustand aktualisiert"
+            git push
+          else
+            echo "Keine Änderungen zum Speichern."
+          fi
