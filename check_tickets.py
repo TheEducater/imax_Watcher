@@ -2,55 +2,58 @@ import requests
 import os
 from datetime import datetime, timedelta
 
-# 1. Datum berechnen
+# 1. Datum berechnen (nächster Freitag)
 heute = datetime.now()
 tage_bis_freitag = (4 - heute.weekday() + 7) % 7
 if tage_bis_freitag == 0: tage_bis_freitag = 7
-naechster_freitag = (heute + timedelta(days=tage_bis_freitag)).strftime('%Y-%m-%d')
+ziel_datum = (heute + timedelta(days=tage_bis_freitag)).strftime('%Y-%m-%d')
 
 token = os.getenv('TELEGRAM_TOKEN')
 chat_id = os.getenv('TELEGRAM_CHAT_ID')
-event_name = os.getenv('GITHUB_EVENT_NAME')
 
-# 2. Die Verkleidung (User-Agent)
-# Damit sieht der Bot für die Webseite wie ein echter Chrome-Browser aus
+# 2. Die Adresse (Wir nutzen den "Public" Endpunkt von Kinoheld)
+CINEMA_ID = "2631" # Leonberg
+# Wir nutzen hier den Endpoint, der oft für Widgets verwendet wird - der ist meistens offen
+url = f"https://www.kinoheld.de/api/v1/cinemas/{CINEMA_ID}/shows?format=json"
+
 headers = {
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+    'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
+    'Referer': 'https://www.kinoheld.de/'
 }
 
-CINEMA_ID = "2631"
-url = f"https://www.kinoheld.de/api/v1/cinemas/{CINEMA_ID}/shows"
-
 try:
-    # Wir schicken die Anfrage mit der "Verkleidung" (headers)
-    response = requests.get(url, headers=headers)
+    response = requests.get(url, headers=headers, timeout=10)
     
-    # Prüfen ob die Antwort ok ist (Status 200)
     if response.status_code != 200:
-        raise Exception(f"Kinoheld blockiert uns (Status {response.status_code})")
+        # Falls v1 nicht geht, probieren wir einen alternativen Pfad
+        url = f"https://api.kinoheld.de/v2/cinemas/{CINEMA_ID}/shows"
+        response = requests.get(url, headers=headers, timeout=10)
 
     data = response.json()
-    shows = data.get('shows', [])
+    # Kinoheld verschachtelt die Daten manchmal in 'shows' oder 'data'
+    shows = data.get('shows', data.get('data', []))
 
     gefundene_filme = []
     for show in shows:
-        if show['beginning']['date'] == naechster_freitag:
-            titel = show['name']
+        # Wir prüfen das Datum. Kinoheld liefert oft "2026-04-10"
+        show_date = show.get('beginning', {}).get('date', '')
+        if show_date == ziel_datum:
+            titel = show.get('name', 'Unbekannter Film')
             if titel not in gefundene_filme:
                 gefundene_filme.append(titel)
 
-    # 3. Nachricht senden
+    # 3. Ergebnis senden
     if gefundene_filme:
         film_liste = "\n✅ " + "\n✅ ".join(gefundene_filme)
-        msg = f"🚨 TICKETS DA! ({naechster_freitag})\n\n{film_liste}\n\nSchnell sein! 🎟️"
+        msg = f"🚨 TICKETS DA! ({ziel_datum})\n\n{film_liste}\n\nLink: https://leonberg.traumpalast.de/"
         requests.get(f"https://api.telegram.org/bot{token}/sendMessage?chat_id={chat_id}&text={msg}")
     
-    elif event_name == "workflow_dispatch":
-        msg = f"✅ Verbindung steht! Bot ist bereit.\n\nFür Freitag ({naechster_freitag}) sind aber aktuell noch keine Tickets online."
+    elif os.getenv('GITHUB_EVENT_NAME') == "workflow_dispatch":
+        msg = f"✅ Verbindung zu Kinoheld steht! \n\nFür Freitag ({ziel_datum}) sind aber aktuell noch keine Tickets im System von Leonberg."
         requests.get(f"https://api.telegram.org/bot{token}/sendMessage?chat_id={chat_id}&text={msg}")
 
 except Exception as e:
-    # Wenn ein Fehler passiert, schick ihn direkt zu Telegram
-    error_msg = f"❌ Bot-Fehler: {e}"
-    requests.get(f"https://api.telegram.org/bot{token}/sendMessage?chat_id={chat_id}&text={error_msg}")
+    # Nur bei manuellem Test Fehler senden, um nicht jeden Montag Fehlalarme zu kriegen
+    if os.getenv('GITHUB_EVENT_NAME') == "workflow_dispatch":
+        requests.get(f"https://api.telegram.org/bot{token}/sendMessage?chat_id={chat_id}&text=❌ Fehler: {str(e)}")
     print(f"Fehler: {e}")
