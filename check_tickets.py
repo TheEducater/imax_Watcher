@@ -46,4 +46,25 @@ try:
                     gefundene_shows.append(f"{titel} | {datum} | {uhrzeit}")
 
         # 3. Vergleich: Was ist neu?
-        neue_eintraege = [s for s in gefundene_shows
+        # ACHTUNG: Diese Zeile muss komplett sein!
+        neue_eintraege = [s for s in gefundene_shows if s not in alte_shows]
+
+        # 4. Gedächtnis IMMER aktualisieren
+        gefundene_shows.sort()
+        with open(DATEI, "w", encoding="utf-8") as f:
+            f.write("\n".join(gefundene_shows))
+
+        if neue_eintraege:
+            # Wenn neue Tickets da sind: Alarm!
+            liste_text = "\n".join([f"✅ {n}" for n in neue_eintraege[:15]])
+            msg = f"🚨 NEUE IMAX TICKETS!\n\n{liste_text}\n\nLink: {URL}"
+            send_msg(msg)
+        else:
+            # Nur bei manuellem Start Bestätigung senden
+            if os.getenv('GITHUB_EVENT_NAME') == "workflow_dispatch":
+                send_msg(f"✅ Check durchgeführt: Keine neuen Termine (Aktuell: {len(gefundene_shows)} Shows).")
+    
+except Exception as e:
+    if os.getenv('GITHUB_EVENT_NAME') == "workflow_dispatch":
+        send_msg(f"❌ Technischer Fehler: {str(e)}")
+
