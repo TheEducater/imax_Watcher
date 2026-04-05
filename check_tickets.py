@@ -1,49 +1,64 @@
-import requests
+import cloudscraper
 import os
 from datetime import datetime, timedelta
 
-# 1. Nächsten Freitag berechnen
+# 1. Datum berechnen
 heute = datetime.now()
 tage_bis_freitag = (4 - heute.weekday() + 7) % 7
 if tage_bis_freitag == 0: tage_bis_freitag = 7
-naechster_freitag = heute + timedelta(days=tage_bis_freitag)
-
-# Such-Formate für Traumpalast (z.B. "10.04.2026" oder "10.04.")
-datum_lang = naechster_freitag.strftime('%d.%m.%Y')
-datum_kurz = naechster_freitag.strftime('%d.%m.')
+ziel_datum = (heute + timedelta(days=tage_bis_freitag)).strftime('%Y-%m-%d')
 
 token = os.getenv('TELEGRAM_TOKEN')
 chat_id = os.getenv('TELEGRAM_CHAT_ID')
 
-# 2. Die direkte IMAX Traumpalast Seite (Kein Kinoheld mehr!)
-URL = "https://leonberg.traumpalast.de/index.php/PID/11321.html"
-
-headers = {
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0 Safari/537.36'
-}
-
 def send_msg(text):
-    # Sichere Methode, um Text mit Emojis über Telegram zu senden
-    url = f"https://api.telegram.org/bot{token}/sendMessage"
-    requests.get(url, params={"chat_id": chat_id, "text": text})
+    import requests
+    requests.get(f"https://api.telegram.org/bot{token}/sendMessage", params={"chat_id": chat_id, "text": text})
+
+# 2. Das Gedächtnis des Bots (Notizbuch laden)
+DATEI = "alte_filme.txt"
+alte_filme = []
+if os.path.exists(DATEI):
+    with open(DATEI, "r", encoding="utf-8") as f:
+        alte_filme = f.read().splitlines()
+
+# 3. Der VIP-Pass für die JSON-Daten (umgeht den 404-Blocker)
+scraper = cloudscraper.create_scraper()
+URL = "https://www.kinoheld.de/api/v1/cinemas/2631/shows?format=json"
 
 try:
-    response = requests.get(URL, headers=headers, timeout=15)
+    response = scraper.get(URL, timeout=15)
     
     if response.status_code == 200:
-        html_text = response.text
+        data = response.json()
+        shows = data.get('shows', [])
         
-        # 3. Traumpalast-Webseite scannen
-        # Sobald Filme da sind, taucht das Datum im Quelltext der Seite auf
-        if datum_lang in html_text or datum_kurz in html_text:
-            msg = f"🚨 TICKETS DA! Das Datum für Freitag ({datum_lang}) ist auf der IMAX-Webseite aufgetaucht!\n\nDirekt prüfen: {URL}"
-            send_msg(msg)
-        else:
-            if os.getenv('GITHUB_EVENT_NAME') == "workflow_dispatch":
-                send_msg(f"✅ Traumpalast-Check läuft! Für Freitag ({datum_lang}) ist noch nichts freigeschaltet.")
+        aktuelle_filme = []
+        for show in shows:
+            # Hier prüfen wir im echten System, ob die Filme da sind!
+            if show.get('beginning', {}).get('date') == ziel_datum:
+                titel = show.get('name')
+                uhrzeit = show.get('beginning', {}).get('time', '')
+                if titel:
+                    aktuelle_filme.append(f"{titel} um {uhrzeit} Uhr")
+        
+        # 4. Der Vergleich: Was ist WIRKLICH neu?
+        neue_filme = [film for film in aktuelle_filme if film not in alte_filme]
+
+        if neue_filme:
+            film_liste = "\n✅ " + "\n✅ ".join(neue_filme)
+            send_msg(f"🚨 NEUE TICKETS für Freitag ({ziel_datum})!\n{film_liste}\n\nLink: https://leonberg.traumpalast.de/")
+            
+            # Das Notizbuch aktualisieren und für GitHub speichern
+            with open(DATEI, "w", encoding="utf-8") as f:
+                f.write("\n".join(aktuelle_filme))
+        
+        elif os.getenv('GITHUB_EVENT_NAME') == "workflow_dispatch":
+            send_msg(f"✅ Check lief. Keine NEUEN Filme für {ziel_datum} dazugekommen.")
+            
     else:
         if os.getenv('GITHUB_EVENT_NAME') == "workflow_dispatch":
-            send_msg(f"❌ Fehler: Webseite meldet Status {response.status_code}")
+            send_msg(f"❌ Kinoheld blockt noch immer: Status {response.status_code}")
 
 except Exception as e:
     if os.getenv('GITHUB_EVENT_NAME') == "workflow_dispatch":
