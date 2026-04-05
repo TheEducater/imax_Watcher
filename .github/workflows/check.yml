@@ -1,27 +1,23 @@
-name: Kino Check Stündlich
+name: IMAX Check Stündlich
 
 on:
-  workflow_dispatch: # Erlaubt manuelles Starten
+  workflow_dispatch:
   schedule:
-    - cron: '0 * * * *' # Läuft jede Stunde (Minute 0)
+    - cron: '0 * * * *'
 
 jobs:
   check:
     runs-on: ubuntu-latest
     permissions:
-      contents: write # Wichtig, damit der Bot Dateien speichern darf
+      contents: write
       
     steps:
-      - name: Code auschecken
-        uses: actions/checkout@v4
-
-      - name: Python einrichten
-        uses: actions/setup-python@v5
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.10'
-
       - name: Software installieren
-        run: pip install requests
+        run: pip install requests beautifulsoup4 lxml # <-- Wichtig: BeautifulSoup hinzufügen
 
       - name: Skript ausführen
         env:
@@ -30,9 +26,8 @@ jobs:
         run: python check_tickets.py
 
       - name: Gedächtnis speichern
-        # Speichert die Datei anzahl.txt wieder im Repository
         run: |
           git config --global user.name "Kino-Bot"
           git config --global user.email "bot@example.com"
-          git add anzahl.txt || true
+          git add aktuelle_shows.txt || true
           git diff --quiet && git diff --staged --quiet || (git commit -m "Zustand aktualisiert" && git push)
