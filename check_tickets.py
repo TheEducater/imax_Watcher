@@ -1,56 +1,65 @@
 import os
 import requests
-import re
+from bs4 import BeautifulSoup
 
-# 1. Zugangsdaten
 token = os.getenv('TELEGRAM_TOKEN')
 chat_id = os.getenv('TELEGRAM_CHAT_ID')
 
 def send_msg(text):
-    url = f"https://api.telegram.org/bot{token}/sendMessage"
-    requests.get(url, params={"chat_id": chat_id, "text": text})
+    requests.get(f"https://api.telegram.org/bot{token}/sendMessage", params={"chat_id": chat_id, "text": text})
 
-# 2. Gedächtnis laden
+# 1. Gedächtnis laden
 DATEI = "aktuelle_shows.txt"
 alte_shows = set()
 if os.path.exists(DATEI):
     with open(DATEI, "r", encoding="utf-8") as f:
         alte_shows = set(f.read().splitlines())
 
-# 3. Traumpalast direkt anklopfen (ohne ScraperAPI)
+# 2. Seite laden
 URL = "https://leonberg.traumpalast.de/index.php/PID/11321.html"
 headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0'}
 
 try:
-    response = requests.get(URL, headers=headers, timeout=15)
+    response = requests.get(URL, headers=headers, timeout=20)
     if response.status_code == 200:
-        html = response.text
-        
-        # Wir suchen nach Uhrzeiten (z.B. "20:00 Uhr")
-        # Das verhindert Fehlalarme durch leere Kalender-Daten
-        funde = re.findall(r'(\d{2}:\d{2})\s*Uhr', html)
-        
-        # Wir merken uns einfach, wie viele Uhrzeiten auf der Seite stehen
-        aktuelle_anzahl = len(funde)
-        
-        # 4. Vergleich
-        # Wir speichern die Anzahl als "Zustand"
-        anzahl_alt = "0"
-        if os.path.exists("anzahl.txt"):
-            with open("anzahl.txt", "r") as f: anzahl_alt = f.read().strip()
+        soup = BeautifulSoup(response.text, 'lxml')
+        gefundene_shows = []
 
-        if aktuelle_anzahl > 0 and str(aktuelle_anzahl) != anzahl_alt:
-            msg = f"🚨 TICKETS AKTIV! Es wurden {aktuelle_anzahl} Vorstellungen im IMAX gefunden!\n\nLink: {URL}"
-            send_msg(msg)
+        # Wir suchen alle Film-Blöcke
+        movies = soup.select('.movie-list .movie')
+        for movie in movies:
+            titel = movie.select_one('h3[itemprop="name"]').get_text(strip=True)
             
-            with open("anzahl.txt", "w") as f: f.write(str(aktuelle_anzahl))
+            # Für jeden Film suchen wir die Tage
+            day_blocks = movie.select('.day-block')
+            for block in day_blocks:
+                datum = block.select_one('.day-date').get_text(strip=True)
+                
+                # In jedem Tag suchen wir die Uhrzeiten
+                zeiten = block.select('time[itemprop="startDate"]')
+                for zeit_tag in zeiten:
+                    uhrzeit = zeit_tag.get_text(strip=True)
+                    # Eintrag erstellen: "Filmname | Datum | Uhrzeit"
+                    gefundene_shows.append(f"{titel} | {datum} | {uhrzeit}")
+
+        # 3. Vergleich
+        neue_eintraege = [s for s in gefundene_shows if s not in alte_shows]
+
+        if neue_eintraege:
+            nachricht = "🚨 NEUE TICKETS GEFUNDEN!\n\n" + "\n".join([f"✅ {n}" for n in neue_eintraege[:20]])
+            if len(neue_eintraege) > 20: nachricht += "\n..."
+            nachricht += f"\n\nLink: {URL}"
+            send_msg(nachricht)
+            
+            with open(DATEI, "w", encoding="utf-8") as f:
+                f.write("\n".join(gefundene_shows))
         else:
             if os.getenv('GITHUB_EVENT_NAME') == "workflow_dispatch":
-                send_msg(f"✅ Check lief: Seite geladen, aber noch keine aktiven Uhrzeiten gefunden ({aktuelle_anzahl} Shows).")
+                send_msg(f"✅ Check lief perfekt. Keine neuen Shows im Vergleich zum letzten Mal (Aktuell: {len(gefundene_shows)} Vorstellungen).")
     else:
         if os.getenv('GITHUB_EVENT_NAME') == "workflow_dispatch":
-            send_msg(f"❌ Traumpalast blockt GitHub jetzt doch (Status {response.status_code})")
+            send_msg(f"❌ Fehler: Seite meldet Status {response.status_code}")
 
 except Exception as e:
     if os.getenv('GITHUB_EVENT_NAME') == "workflow_dispatch":
-        send_msg(f"❌ Fehler: {str(e)}")
+        send_msg(f"❌ Technischer Fehler: {str(e)}")
