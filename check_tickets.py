@@ -8,40 +8,42 @@ tage_bis_freitag = (4 - heute.weekday() + 7) % 7
 if tage_bis_freitag == 0: tage_bis_freitag = 7
 naechster_freitag = heute + timedelta(days=tage_bis_freitag)
 
-# Wir suchen nach der kurzen Schreibweise, die Kinoheld meist nutzt (z.B. "10.04.")
-such_datum = naechster_freitag.strftime('%d.%m.') 
+# Such-Formate für Traumpalast (z.B. "10.04.2026" oder "10.04.")
+datum_lang = naechster_freitag.strftime('%d.%m.%Y')
+datum_kurz = naechster_freitag.strftime('%d.%m.')
 
 token = os.getenv('TELEGRAM_TOKEN')
 chat_id = os.getenv('TELEGRAM_CHAT_ID')
 
-# 2. Das direkte Kinoheld-Widget für Leonberg (Kein API-Stress mehr!)
-URL = "https://www.kinoheld.de/widget/cinema/2631/shows/list"
+# 2. Die direkte IMAX Traumpalast Seite (Kein Kinoheld mehr!)
+URL = "https://leonberg.traumpalast.de/index.php/PID/11321.html"
 
 headers = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0 Safari/537.36'
 }
 
 def send_msg(text):
-    requests.get(f"https://api.telegram.org/bot{token}/sendMessage?chat_id={chat_id}&text={text}")
+    # Sichere Methode, um Text mit Emojis über Telegram zu senden
+    url = f"https://api.telegram.org/bot{token}/sendMessage"
+    requests.get(url, params={"chat_id": chat_id, "text": text})
 
 try:
-    # Den Quelltext des eingebetteten Widgets laden
     response = requests.get(URL, headers=headers, timeout=15)
     
     if response.status_code == 200:
         html_text = response.text
         
-        # 3. Wir suchen einfach stumpf nach dem Datum im Text
-        if such_datum in html_text:
-            msg = f"🚨 TICKETS DA! Im IMAX Leonberg sind Vorstellungen für Freitag ({such_datum}) aufgetaucht!\n\nLink: https://leonberg.traumpalast.de/"
+        # 3. Traumpalast-Webseite scannen
+        # Sobald Filme da sind, taucht das Datum im Quelltext der Seite auf
+        if datum_lang in html_text or datum_kurz in html_text:
+            msg = f"🚨 TICKETS DA! Das Datum für Freitag ({datum_lang}) ist auf der IMAX-Webseite aufgetaucht!\n\nDirekt prüfen: {URL}"
             send_msg(msg)
         else:
-            # Nur bei manuellem Klick bei GitHub:
             if os.getenv('GITHUB_EVENT_NAME') == "workflow_dispatch":
-                send_msg(f"✅ Widget-Check läuft! Für Freitag ({such_datum}) ist noch nichts gelistet.")
+                send_msg(f"✅ Traumpalast-Check läuft! Für Freitag ({datum_lang}) ist noch nichts freigeschaltet.")
     else:
         if os.getenv('GITHUB_EVENT_NAME') == "workflow_dispatch":
-            send_msg(f"❌ Kinoheld blockt das Widget (Status {response.status_code})")
+            send_msg(f"❌ Fehler: Webseite meldet Status {response.status_code}")
 
 except Exception as e:
     if os.getenv('GITHUB_EVENT_NAME') == "workflow_dispatch":
