@@ -2,7 +2,7 @@ import requests
 import os
 from datetime import datetime, timedelta
 
-# 1. Datum berechnen (nächster Freitag)
+# 1. Nächsten Freitag berechnen (z.B. 10.04.2026)
 heute = datetime.now()
 tage_bis_freitag = (4 - heute.weekday() + 7) % 7
 if tage_bis_freitag == 0: tage_bis_freitag = 7
@@ -11,49 +11,47 @@ ziel_datum = (heute + timedelta(days=tage_bis_freitag)).strftime('%Y-%m-%d')
 token = os.getenv('TELEGRAM_TOKEN')
 chat_id = os.getenv('TELEGRAM_CHAT_ID')
 
-# 2. Die Adresse (Wir nutzen den "Public" Endpunkt von Kinoheld)
-CINEMA_ID = "2631" # Leonberg
-# Wir nutzen hier den Endpoint, der oft für Widgets verwendet wird - der ist meistens offen
-url = f"https://www.kinoheld.de/api/v1/cinemas/{CINEMA_ID}/shows?format=json"
+# 2. Die JSON-API-URL direkt von Kinoheld (ID 2631 = Leonberg)
+URL = "https://www.kinoheld.de/api/v1/cinemas/2631/shows?format=json"
 
+# WICHTIG: Die "Tarnung", damit Kinoheld uns nicht blockt
 headers = {
-    'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
-    'Referer': 'https://www.kinoheld.de/'
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    'Referer': 'https://leonberg.traumpalast.de/', # Das ist der "Ausweis"
+    'Accept': 'application/json'
 }
 
+def send_msg(text):
+    requests.get(f"https://api.telegram.org/bot{token}/sendMessage?chat_id={chat_id}&text={text}")
+
 try:
-    response = requests.get(url, headers=headers, timeout=10)
+    # Den Jason (JSON) abrufen
+    response = requests.get(URL, headers=headers, timeout=15)
     
-    if response.status_code != 200:
-        # Falls v1 nicht geht, probieren wir einen alternativen Pfad
-        url = f"https://api.kinoheld.de/v2/cinemas/{CINEMA_ID}/shows"
-        response = requests.get(url, headers=headers, timeout=10)
+    if response.status_code == 200:
+        data = response.json()
+        shows = data.get('shows', [])
+        
+        gefundene_filme = []
+        for show in shows:
+            # Wir prüfen das Datum im JSON
+            if show.get('beginning', {}).get('date') == ziel_datum:
+                titel = show.get('name')
+                uhrzeit = show.get('beginning', {}).get('time', '')
+                if titel:
+                    gefundene_filme.append(f"{titel} um {uhrzeit}")
 
-    data = response.json()
-    # Kinoheld verschachtelt die Daten manchmal in 'shows' oder 'data'
-    shows = data.get('shows', data.get('data', []))
-
-    gefundene_filme = []
-    for show in shows:
-        # Wir prüfen das Datum. Kinoheld liefert oft "2026-04-10"
-        show_date = show.get('beginning', {}).get('date', '')
-        if show_date == ziel_datum:
-            titel = show.get('name', 'Unbekannter Film')
-            if titel not in gefundene_filme:
-                gefundene_filme.append(titel)
-
-    # 3. Ergebnis senden
-    if gefundene_filme:
-        film_liste = "\n✅ " + "\n✅ ".join(gefundene_filme)
-        msg = f"🚨 TICKETS DA! ({ziel_datum})\n\n{film_liste}\n\nLink: https://leonberg.traumpalast.de/"
-        requests.get(f"https://api.telegram.org/bot{token}/sendMessage?chat_id={chat_id}&text={msg}")
-    
-    elif os.getenv('GITHUB_EVENT_NAME') == "workflow_dispatch":
-        msg = f"✅ Verbindung zu Kinoheld steht! \n\nFür Freitag ({ziel_datum}) sind aber aktuell noch keine Tickets im System von Leonberg."
-        requests.get(f"https://api.telegram.org/bot{token}/sendMessage?chat_id={chat_id}&text={msg}")
+        if gefundene_filme:
+            film_liste = "\n✅ " + "\n✅ ".join(gefundene_filme)
+            send_msg(f"🚨 TICKETS DA für {ziel_datum}!\n{film_liste}\n\nLink: https://leonberg.traumpalast.de/")
+        elif os.getenv('GITHUB_EVENT_NAME') == "workflow_dispatch":
+            send_msg(f"✅ JSON-Check erfolgreich! Verbindung steht, aber für {ziel_datum} sind noch keine Filme im System.")
+            
+    else:
+        # Falls doch ein Fehler kommt, schick uns den Status-Code
+        if os.getenv('GITHUB_EVENT_NAME') == "workflow_dispatch":
+            send_msg(f"❌ Kinoheld meldet Fehler-Code: {response.status_code}")
 
 except Exception as e:
-    # Nur bei manuellem Test Fehler senden, um nicht jeden Montag Fehlalarme zu kriegen
     if os.getenv('GITHUB_EVENT_NAME') == "workflow_dispatch":
-        requests.get(f"https://api.telegram.org/bot{token}/sendMessage?chat_id={chat_id}&text=❌ Fehler: {str(e)}")
-    print(f"Fehler: {e}")
+        send_msg(f"❌ Technischer Fehler: {str(e)}")
