@@ -1,16 +1,15 @@
 name: Kino Check Stündlich
 
 on:
-  workflow_dispatch: # Erlaubt manuelles Starten per Knopf
+  workflow_dispatch: # Erlaubt manuelles Starten
   schedule:
-    - cron: '0 * * * *' # Das ist der "Conjob": Läuft jede Stunde (Minute 0)
+    - cron: '0 * * * *' # Läuft jede Stunde (Minute 0)
 
 jobs:
   check:
     runs-on: ubuntu-latest
-    # WICHTIG: Damit der Bot die Textdatei im Repo speichern darf
     permissions:
-      contents: write 
+      contents: write # Wichtig, damit der Bot Dateien speichern darf
       
     steps:
       - name: Code auschecken
@@ -21,20 +20,19 @@ jobs:
         with:
           python-version: '3.10'
 
-      - name: Tunnel-Werkzeug installieren
+      - name: Software installieren
         run: pip install requests
 
       - name: Skript ausführen
         env:
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-          SCRAPER_API_KEY: ${{ secrets.SCRAPER_API_KEY }}
         run: python check_tickets.py
 
-      - name: Gedächtnis aktualisieren
-        # Dieser Teil speichert die "aktuelle_shows.txt" wieder bei GitHub
+      - name: Gedächtnis speichern
+        # Speichert die Datei anzahl.txt wieder im Repository
         run: |
           git config --global user.name "Kino-Bot"
           git config --global user.email "bot@example.com"
-          git add aktuelle_shows.txt || true
+          git add anzahl.txt || true
           git diff --quiet && git diff --staged --quiet || (git commit -m "Zustand aktualisiert" && git push)
