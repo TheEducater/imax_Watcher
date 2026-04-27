@@ -1,6 +1,7 @@
 Der Astronaut - Project Hail Mary | 01.05.2026: | 14:00
 Der Astronaut - Project Hail Mary | 02.05.2026: | 11:00
 Der Astronaut - Project Hail Mary | 02.05.2026: | 23:30
+Der Astronaut - Project Hail Mary | 04.05.2026: | 20:30
 Der Astronaut - Project Hail Mary | 30.04.2026: | 23:30
 Der Super Mario Galaxy Film | 01.05.2026: | 11:30
 Der Super Mario Galaxy Film | 03.05.2026: | 11:30
@@ -13,6 +14,8 @@ Michael | 02.05.2026: | 20:30
 Michael | 03.05.2026: | 14:30
 Michael | 03.05.2026: | 17:30
 Michael | 03.05.2026: | 20:30
+Michael | 04.05.2026: | 14:30
+Michael | 04.05.2026: | 17:30
 Michael | 28.04.2026: | 14:30
 Michael | 28.04.2026: | 17:30
 Michael | 28.04.2026: | 20:30
