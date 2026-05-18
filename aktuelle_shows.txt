@@ -3,6 +3,7 @@ Michael | 19.05.2026: | 17:00
 Michael | 19.05.2026: | 20:00
 Michael | 23.05.2026: | 09:45
 Michael | 24.05.2026: | 09:45
+Michael | 25.05.2026: | 10:15
 The Mandalorian and Grogu | 20.05.2026: | 13:30
 The Mandalorian and Grogu | 20.05.2026: | 17:00
 The Mandalorian and Grogu | 20.05.2026: | 20:30
@@ -21,3 +22,6 @@ The Mandalorian and Grogu | 24.05.2026: | 13:00
 The Mandalorian and Grogu | 24.05.2026: | 16:30
 The Mandalorian and Grogu | 24.05.2026: | 20:00
 The Mandalorian and Grogu | 24.05.2026: | 23:30
+The Mandalorian and Grogu | 25.05.2026: | 13:30
+The Mandalorian and Grogu | 25.05.2026: | 17:00
+The Mandalorian and Grogu | 25.05.2026: | 20:30
