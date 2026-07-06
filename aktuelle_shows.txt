@@ -7,6 +7,7 @@ Minions & Monster | 08.07.2026: | 20:30
 Minions & Monster | 10.07.2026: | 17:30
 Minions & Monster | 11.07.2026: | 14:45
 Minions & Monster | 12.07.2026: | 17:30
+Minions & Monster | 13.07.2026: | 20:15
 Vaiana | 09.07.2026: | 14:45
 Vaiana | 09.07.2026: | 17:30
 Vaiana | 09.07.2026: | 20:15
@@ -17,3 +18,5 @@ Vaiana | 11.07.2026: | 20:15
 Vaiana | 12.07.2026: | 11:45
 Vaiana | 12.07.2026: | 14:45
 Vaiana | 12.07.2026: | 20:15
+Vaiana | 13.07.2026: | 14:45
+Vaiana | 13.07.2026: | 17:30
