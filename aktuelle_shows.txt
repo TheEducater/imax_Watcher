@@ -4,6 +4,7 @@ Avengers: Endgame Extended | 03.10.2026: | 14:30
 Avengers: Endgame Extended | 04.10.2026: | 19:00
 Avengers: Endgame Extended | 05.10.2026: | 14:45
 Avengers: Endgame Extended | 06.10.2026: | 19:00
+Avengers: Endgame Extended | 07.10.2026: | 14:45
 Die Odyssee | 01.10.2026: | 19:00
 Die Odyssee | 02.10.2026: | 14:45
 Die Odyssee | 03.10.2026: | 10:30
@@ -12,5 +13,6 @@ Die Odyssee | 04.10.2026: | 10:30
 Die Odyssee | 04.10.2026: | 14:30
 Die Odyssee | 05.10.2026: | 19:00
 Die Odyssee | 06.10.2026: | 14:45
+Die Odyssee | 07.10.2026: | 19:00
 Resident Evil | 02.10.2026: | 23:30
 Resident Evil | 03.10.2026: | 23:30
