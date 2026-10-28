@@ -1,6 +1,7 @@
 Der perfekte Urlaub | 01.11.2026: | 16:00
 Der perfekte Urlaub | 02.11.2026: | 19:30
 Der perfekte Urlaub | 03.11.2026: | 16:00
+Der perfekte Urlaub | 04.11.2026: | 16:30
 Der perfekte Urlaub | 29.10.2026: | 16:30
 Der perfekte Urlaub | 30.10.2026: | 19:30
 Der perfekte Urlaub | 31.10.2026: | 20:00
@@ -14,3 +15,4 @@ Die Odyssee | 30.10.2026: | 22:30
 Die Odyssee | 31.10.2026: | 12:00
 Die Odyssee | 31.10.2026: | 16:00
 Die Odyssee | 31.10.2026: | 23:00
+Rammstein - Live in Mexico City | 04.11.2026: | 20:00
